@@ -6,7 +6,7 @@ interface SearchFilterProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
   selectedCrop: string;
-  onCropChange: (value: string) => void;
+  onCropChange: (value: string) => void; 
   sortBy: string;
   onSortChange: (value: string) => void;
 }
