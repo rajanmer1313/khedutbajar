@@ -6,7 +6,7 @@ import Header from '@/components/Header';
 type Role = 'farmer' | 'trader';
 
 const Login = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [role, setRole] = useState<Role>('farmer');
   const [mobile, setMobile] = useState('');
