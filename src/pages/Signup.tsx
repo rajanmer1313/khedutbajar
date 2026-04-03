@@ -160,7 +160,7 @@ const Signup = () => {
             type="submit"
             className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-base touch-target"
           >
-            {t('signupAs')} {role === 'farmer' ? t('farmer') : t('trader')}
+            {language === 'en' ? `${t('signupAs')} ${role === 'farmer' ? t('farmer') : t('trader')}` : `${role === 'farmer' ? t('farmer') : t('trader')} ${t('signupAs')}`}
           </button>
         </form>
 

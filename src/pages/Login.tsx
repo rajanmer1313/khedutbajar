@@ -6,7 +6,7 @@ import Header from '@/components/Header';
 type Role = 'farmer' | 'trader';
 
 const Login = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [role, setRole] = useState<Role>('farmer');
   const [mobile, setMobile] = useState('');
@@ -75,7 +75,7 @@ const Login = () => {
             type="submit"
             className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-base touch-target"
           >
-            {t('loginAs')} {role === 'farmer' ? t('farmer') : t('trader')}
+            {language === 'en' ? `${t('loginAs')} ${role === 'farmer' ? t('farmer') : t('trader')}` : `${role === 'farmer' ? t('farmer') : t('trader')} ${t('loginAs')}`}
           </button>
         </form>
 
