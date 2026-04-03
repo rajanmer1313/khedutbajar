@@ -14,7 +14,136 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      crops: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          name_en: string
+          name_gu: string
+          name_hi: string
+          price_per_20kg: number
+          trader_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          name_en?: string
+          name_gu?: string
+          name_hi?: string
+          price_per_20kg?: number
+          trader_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          name_en?: string
+          name_gu?: string
+          name_hi?: string
+          price_per_20kg?: number
+          trader_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crops_trader_id_fkey"
+            columns: ["trader_id"]
+            isOneToOne: false
+            referencedRelation: "traders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reviews: {
+        Row: {
+          created_at: string
+          farmer_name: string
+          id: string
+          rating: number
+          text: string
+          trader_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          farmer_name: string
+          id?: string
+          rating: number
+          text?: string
+          trader_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          farmer_name?: string
+          id?: string
+          rating?: number
+          text?: string
+          trader_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_trader_id_fkey"
+            columns: ["trader_id"]
+            isOneToOne: false
+            referencedRelation: "traders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      traders: {
+        Row: {
+          business_name: string
+          created_at: string
+          id: string
+          is_trusted: boolean
+          location_en: string
+          location_gu: string
+          location_hi: string
+          mobile: string
+          name: string
+          rating: number
+          total_deals: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          business_name: string
+          created_at?: string
+          id?: string
+          is_trusted?: boolean
+          location_en?: string
+          location_gu?: string
+          location_hi?: string
+          mobile: string
+          name: string
+          rating?: number
+          total_deals?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          business_name?: string
+          created_at?: string
+          id?: string
+          is_trusted?: boolean
+          location_en?: string
+          location_gu?: string
+          location_hi?: string
+          mobile?: string
+          name?: string
+          rating?: number
+          total_deals?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
