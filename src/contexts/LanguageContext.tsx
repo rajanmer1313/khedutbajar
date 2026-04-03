@@ -152,7 +152,7 @@ const translations = {
     welcome: 'Welcome',
     logout: 'Logout',
     cropName: 'Crop Name',
-    price: 'Price (₹/kg)',
+    price: 'Price (₹/20kg)',
     delete: 'Delete',
     edit: 'Edit',
     subscription: 'Subscription',
