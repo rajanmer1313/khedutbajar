@@ -100,7 +100,7 @@ const translations = {
     welcome: 'સ્વાગત છે',
     logout: 'લૉગઆઉટ',
     cropName: 'પાકનું નામ',
-    price: 'કિંમત (₹/કિલો)',
+    price: 'કિંમત (₹/20કિલો)',
     delete: 'કાઢી નાખો',
     edit: 'બદલો',
     subscription: 'સબ્સ્ક્રિપ્શન',
