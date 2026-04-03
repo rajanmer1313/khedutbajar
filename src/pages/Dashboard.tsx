@@ -1,57 +1,127 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cropOptions } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Header from '@/components/Header';
 import { Plus, Trash2, Edit2, Save } from 'lucide-react';
-
-interface MyCrop {
-  id: string;
-  cropId: string;
-  price: number;
-  isEditing: boolean;
-}
+import { toast } from 'sonner';
+import type { Tables } from '@/integrations/supabase/types';
 
 const Dashboard = () => {
   const { language, t } = useLanguage();
-  const [myCrops, setMyCrops] = useState<MyCrop[]>([
-    { id: '1', cropId: 'groundnut', price: 62, isEditing: false },
-    { id: '2', cropId: 'wheat', price: 28, isEditing: false },
-  ]);
+  const queryClient = useQueryClient();
+  const [traderId, setTraderId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCropId, setNewCropId] = useState('');
   const [newPrice, setNewPrice] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const getCropInfo = (cropId: string) => cropOptions.find((c) => c.id === cropId);
+  // Get current user's trader profile
+  useEffect(() => {
+    const loadTrader = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data } = await supabase
+          .from('traders')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        if (data) setTraderId(data.id);
+      }
+    };
+    loadTrader();
+  }, []);
 
-  const addCrop = () => {
-    if (newCropId && newPrice) {
-      setMyCrops([
-        ...myCrops,
-        { id: Date.now().toString(), cropId: newCropId, price: Number(newPrice), isEditing: false },
-      ]);
-      setNewCropId('');
-      setNewPrice('');
-      setShowAddForm(false);
+  // Fetch crops for this trader
+  const { data: myCrops = [], isLoading } = useQuery({
+    queryKey: ['my-crops', traderId],
+    queryFn: async () => {
+      if (!traderId) return [];
+      const { data, error } = await supabase
+        .from('crops')
+        .select('*')
+        .eq('trader_id', traderId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!traderId,
+  });
+
+  // Real-time subscription for crops
+  useEffect(() => {
+    if (!traderId) return;
+    const channel = supabase
+      .channel('my-crops-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'crops', filter: `trader_id=eq.${traderId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['my-crops', traderId] });
+        queryClient.invalidateQueries({ queryKey: ['traders'] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [traderId, queryClient]);
+
+  const getCropInfo = (nameEn: string) => cropOptions.find((c) => c.name.en.toLowerCase() === nameEn.toLowerCase());
+
+  const addCrop = async () => {
+    if (!newCropId || !newPrice || !traderId) return;
+    const cropInfo = cropOptions.find((c) => c.id === newCropId);
+    if (!cropInfo) return;
+
+    const { error } = await supabase.from('crops').insert({
+      trader_id: traderId,
+      name_hi: cropInfo.name.hi,
+      name_gu: cropInfo.name.gu,
+      name_en: cropInfo.name.en,
+      emoji: cropInfo.emoji,
+      price_per_20kg: Number(newPrice),
+    });
+
+    if (error) {
+      toast.error(error.message);
+      return;
     }
+    setNewCropId('');
+    setNewPrice('');
+    setShowAddForm(false);
+    toast.success('Crop added!');
   };
 
-  const deleteCrop = (id: string) => {
-    setMyCrops(myCrops.filter((c) => c.id !== id));
+  const deleteCrop = async (id: string) => {
+    const { error } = await supabase.from('crops').delete().eq('id', id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success('Crop deleted!');
   };
 
-  const toggleEdit = (id: string) => {
-    setMyCrops(myCrops.map((c) => (c.id === id ? { ...c, isEditing: !c.isEditing } : c)));
+  const updatePrice = async (id: string, price: number) => {
+    const { error } = await supabase.from('crops').update({ price_per_20kg: price }).eq('id', id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setEditingId(null);
+    toast.success('Price updated!');
   };
 
-  const updatePrice = (id: string, price: number) => {
-    setMyCrops(myCrops.map((c) => (c.id === id ? { ...c, price, isEditing: false } : c)));
-  };
+  if (!traderId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-4 max-w-lg mx-auto text-center py-12">
+          <span className="text-5xl block mb-3">🏪</span>
+          <p className="text-muted-foreground">{t('login')} as {t('trader')}</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container py-4 max-w-lg mx-auto space-y-4">
-        {/* Dashboard Header */}
         <div className="rounded-2xl bg-primary p-4 text-primary-foreground">
           <div className="flex items-center gap-3">
             <span className="text-4xl">🏪</span>
@@ -62,75 +132,78 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* My Crops List */}
-        <div className="space-y-3">
-          {myCrops.map((crop) => {
-            const info = getCropInfo(crop.cropId);
-            if (!info) return null;
+        {isLoading ? (
+          <div className="text-center py-8">
+            <span className="text-4xl animate-spin inline-block">⏳</span>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {myCrops.map((crop) => {
+              const name = language === 'hi' ? crop.name_hi : language === 'gu' ? crop.name_gu : crop.name_en;
 
-            return (
-              <div key={crop.id} className="rounded-2xl bg-card card-shadow p-4 animate-fade-in">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-4xl">{info.emoji}</span>
-                    <div>
-                      <h3 className="font-bold text-foreground">{info.name[language]}</h3>
-                      {crop.isEditing ? (
-                        <div className="flex items-center gap-2 mt-1">
-                          <input
-                            type="number"
-                            defaultValue={crop.price}
-                            className="w-20 px-2 py-1 rounded-lg bg-muted border border-input text-sm"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                updatePrice(crop.id, Number((e.target as HTMLInputElement).value));
-                              }
-                            }}
-                            id={`price-${crop.id}`}
-                          />
-                          <span className="text-sm text-muted-foreground">{t('perKg')}</span>
-                          <button
-                            onClick={() => {
-                              const input = document.getElementById(`price-${crop.id}`) as HTMLInputElement;
-                              updatePrice(crop.id, Number(input.value));
-                            }}
-                            className="p-1.5 rounded-lg bg-primary text-primary-foreground"
-                          >
-                            <Save className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <p className="text-lg font-bold text-primary">₹{crop.price} {t('perKg')}</p>
-                      )}
+              return (
+                <div key={crop.id} className="rounded-2xl bg-card card-shadow p-4 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-4xl">{crop.emoji}</span>
+                      <div>
+                        <h3 className="font-bold text-foreground">{name}</h3>
+                        {editingId === crop.id ? (
+                          <div className="flex items-center gap-2 mt-1">
+                            <input
+                              type="number"
+                              defaultValue={crop.price_per_20kg}
+                              className="w-20 px-2 py-1 rounded-lg bg-muted border border-input text-sm"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  updatePrice(crop.id, Number((e.target as HTMLInputElement).value));
+                                }
+                              }}
+                              id={`price-${crop.id}`}
+                            />
+                            <span className="text-sm text-muted-foreground">₹/20{language === 'hi' ? 'किलो' : language === 'gu' ? 'કિલો' : 'kg'}</span>
+                            <button
+                              onClick={() => {
+                                const input = document.getElementById(`price-${crop.id}`) as HTMLInputElement;
+                                updatePrice(crop.id, Number(input.value));
+                              }}
+                              className="p-1.5 rounded-lg bg-primary text-primary-foreground"
+                            >
+                              <Save className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-lg font-bold text-primary">₹{crop.price_per_20kg}/20{language === 'hi' ? 'किलो' : language === 'gu' ? 'કિલો' : 'kg'}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditingId(editingId === crop.id ? null : crop.id)}
+                        className="p-2.5 rounded-xl bg-secondary text-secondary-foreground touch-target flex items-center justify-center"
+                      >
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => deleteCrop(crop.id)}
+                        className="p-2.5 rounded-xl bg-destructive/10 text-destructive touch-target flex items-center justify-center"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => toggleEdit(crop.id)}
-                      className="p-2.5 rounded-xl bg-secondary text-secondary-foreground touch-target flex items-center justify-center"
-                    >
-                      <Edit2 className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => deleteCrop(crop.id)}
-                      className="p-2.5 rounded-xl bg-destructive/10 text-destructive touch-target flex items-center justify-center"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
-        {/* Add Crop */}
         {showAddForm ? (
           <div className="rounded-2xl bg-card card-shadow p-4 space-y-3 animate-fade-in">
             <h3 className="font-bold text-foreground">{t('addCrop')}</h3>
             <div className="flex flex-wrap gap-2">
               {cropOptions
-                .filter((c) => !myCrops.some((mc) => mc.cropId === c.id))
+                .filter((c) => !myCrops.some((mc) => mc.name_en.toLowerCase() === c.name.en.toLowerCase()))
                 .map((crop) => (
                   <button
                     key={crop.id}
@@ -147,7 +220,7 @@ const Dashboard = () => {
                 ))}
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">{t('price')}</label>
+              <label className="block text-sm font-medium text-foreground mb-1">{t('price')} (₹/20kg)</label>
               <input
                 type="number"
                 value={newPrice}
