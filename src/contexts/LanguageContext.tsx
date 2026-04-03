@@ -48,7 +48,7 @@ const translations = {
     welcome: 'स्वागत है',
     logout: 'लॉगआउट',
     cropName: 'फसल का नाम',
-    price: 'कीमत (₹/किलो)',
+    price: 'कीमत (₹/20किलो)',
     delete: 'हटाएं',
     edit: 'बदलें',
     subscription: 'सदस्यता',
