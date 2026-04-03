@@ -26,7 +26,7 @@ const translations = {
     rating: 'रेटिंग',
     trustedTrader: 'विश्वसनीय व्यापारी',
     deals: 'सफल सौदे',
-    perKg: '₹/किलो',
+    perKg: '₹/20किलो',
     addCrop: 'फसल जोड़ें',
     setPrice: 'कीमत सेट करें',
     dashboard: 'डैशबोर्ड',
