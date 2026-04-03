@@ -78,7 +78,7 @@ const translations = {
     rating: 'રેટિંગ',
     trustedTrader: 'વિશ્વાસુ વેપારી',
     deals: 'સફળ સોદા',
-    perKg: '₹/કિલો',
+    perKg: '₹/20કિલો',
     addCrop: 'પાક ઉમેરો',
     setPrice: 'કિંમત સેટ કરો',
     dashboard: 'ડેશબોર્ડ',
