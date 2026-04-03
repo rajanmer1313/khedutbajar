@@ -130,7 +130,7 @@ const translations = {
     rating: 'Rating',
     trustedTrader: 'Trusted Trader',
     deals: 'Successful Deals',
-    perKg: '₹/kg',
+    perKg: '₹/20kg',
     addCrop: 'Add Crop',
     setPrice: 'Set Price',
     dashboard: 'Dashboard',
