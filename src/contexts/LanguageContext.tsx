@@ -54,6 +54,7 @@ const translations = {
     subscription: 'सदस्यता',
     free: 'मुफ्त',
     selectCrops: 'फसलें चुनें',
+    email: 'ईमेल',
   },
   gu: {
     appName: 'ખેડૂત બજાર',
@@ -106,6 +107,7 @@ const translations = {
     subscription: 'સબ્સ્ક્રિપ્શન',
     free: 'મફત',
     selectCrops: 'પાક પસંદ કરો',
+    email: 'ઇમેઇલ',
   },
   en: {
     appName: 'Kisan Bazaar',
@@ -158,6 +160,7 @@ const translations = {
     subscription: 'Subscription',
     free: 'Free',
     selectCrops: 'Select Crops',
+    email: 'Email',
   },
 };
 
