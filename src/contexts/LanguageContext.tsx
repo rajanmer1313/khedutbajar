@@ -54,6 +54,7 @@ const translations = {
     subscription: 'सदस्यता',
     free: 'मुफ्त',
     selectCrops: 'फसलें चुनें',
+    email: 'ईमेल',
   },
   gu: {
     appName: 'ખેડૂત બજાર',
