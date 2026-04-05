@@ -58,6 +58,39 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          business_name: string | null
+          created_at: string
+          id: string
+          location: string | null
+          mobile: string
+          name: string
+          role: string
+          village: string | null
+        }
+        Insert: {
+          business_name?: string | null
+          created_at?: string
+          id: string
+          location?: string | null
+          mobile?: string
+          name?: string
+          role: string
+          village?: string | null
+        }
+        Update: {
+          business_name?: string | null
+          created_at?: string
+          id?: string
+          location?: string | null
+          mobile?: string
+          name?: string
+          role?: string
+          village?: string | null
+        }
+        Relationships: []
+      }
       reviews: {
         Row: {
           created_at: string
