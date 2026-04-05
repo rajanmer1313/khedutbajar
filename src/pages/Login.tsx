@@ -1,23 +1,43 @@
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
-
-type Role = 'farmer' | 'trader';
+import { toast } from 'sonner';
 
 const Login = () => {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
-  const [role, setRole] = useState<Role>('farmer');
-  const [mobile, setMobile] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login
-    localStorage.setItem('kisanUser', JSON.stringify({ role, mobile, name: role === 'farmer' ? 'किसान' : 'व्यापारी' }));
-    navigate(role === 'trader' ? '/dashboard' : '/');
-    window.location.reload();
+    setLoading(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      toast.error(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // Fetch profile to determine role-based redirect
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    setLoading(false);
+
+    if (profile?.role === 'trader') {
+      navigate('/dashboard');
+    } else {
+      navigate('/');
+    }
   };
 
   return (
@@ -29,35 +49,15 @@ const Login = () => {
           <h1 className="text-2xl font-bold text-foreground">{t('login')}</h1>
         </div>
 
-        {/* Role Toggle */}
-        <div className="flex rounded-2xl bg-secondary p-1 mb-6">
-          <button
-            onClick={() => setRole('farmer')}
-            className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all touch-target flex items-center justify-center gap-2 ${
-              role === 'farmer' ? 'bg-primary text-primary-foreground' : 'text-secondary-foreground'
-            }`}
-          >
-            👨‍🌾 {t('farmer')}
-          </button>
-          <button
-            onClick={() => setRole('trader')}
-            className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all touch-target flex items-center justify-center gap-2 ${
-              role === 'trader' ? 'bg-primary text-primary-foreground' : 'text-secondary-foreground'
-            }`}
-          >
-            🏪 {t('trader')}
-          </button>
-        </div>
-
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">📱 {t('mobile')}</label>
+            <label className="block text-sm font-medium text-foreground mb-1">📧 {t('email')}</label>
             <input
-              type="tel"
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-xl bg-card border border-input text-base touch-target"
-              placeholder="9876543210"
+              placeholder="name@example.com"
               required
             />
           </div>
@@ -69,13 +69,15 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 rounded-xl bg-card border border-input text-base touch-target"
               required
+              minLength={6}
             />
           </div>
           <button
             type="submit"
-            className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-base touch-target"
+            disabled={loading}
+            className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-base touch-target disabled:opacity-50"
           >
-            {language === 'en' ? `${t('loginAs')} ${role === 'farmer' ? t('farmer') : t('trader')}` : `${role === 'farmer' ? t('farmer') : t('trader')} ${t('loginAs')}`}
+            {loading ? '...' : t('login')}
           </button>
         </form>
 

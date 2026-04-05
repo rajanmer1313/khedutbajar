@@ -2,19 +2,16 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageToggle from './LanguageToggle';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, User } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const Header = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  
-  // Simple mock auth state from localStorage
-  const user = localStorage.getItem('kisanUser');
-  const parsed = user ? JSON.parse(user) : null;
+  const { user, profile, signOut } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem('kisanUser');
+  const handleLogout = async () => {
+    await signOut();
     navigate('/');
-    window.location.reload();
   };
 
   return (
@@ -27,9 +24,12 @@ const Header = () => {
 
         <div className="flex items-center gap-2">
           <LanguageToggle />
-          {parsed ? (
+          {user ? (
             <div className="flex items-center gap-2 ml-2">
-              {parsed.role === 'trader' && (
+              <span className="text-sm font-medium text-foreground truncate max-w-[100px]">
+                {profile?.name || user.email?.split('@')[0]}
+              </span>
+              {profile?.role === 'trader' && (
                 <Link
                   to="/dashboard"
                   className="touch-target flex items-center justify-center px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium"

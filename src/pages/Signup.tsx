@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { cropOptions } from '@/data/mockData';
 import Header from '@/components/Header';
+import { toast } from 'sonner';
 
 type Role = 'farmer' | 'trader';
 
@@ -11,12 +13,14 @@ const Signup = () => {
   const navigate = useNavigate();
   const [role, setRole] = useState<Role>('farmer');
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [village, setVillage] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [location, setLocation] = useState('');
   const [selectedCrops, setSelectedCrops] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const toggleCrop = (cropId: string) => {
     setSelectedCrops((prev) =>
@@ -24,14 +28,66 @@ const Signup = () => {
     );
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem(
-      'kisanUser',
-      JSON.stringify({ role, name, mobile, village, businessName, location, selectedCrops })
-    );
-    navigate(role === 'trader' ? '/dashboard' : '/');
-    window.location.reload();
+    setLoading(true);
+
+    // Sign up with Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { role, name, mobile },
+      },
+    });
+
+    if (error) {
+      toast.error(error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!data.user) {
+      toast.error('Signup failed');
+      setLoading(false);
+      return;
+    }
+
+    // Update profile with extra fields
+    const profileUpdate: Record<string, string | undefined> = {};
+    if (role === 'farmer') {
+      profileUpdate.village = village;
+    } else {
+      profileUpdate.business_name = businessName;
+      profileUpdate.location = location;
+    }
+
+    await supabase
+      .from('profiles')
+      .update(profileUpdate)
+      .eq('id', data.user.id);
+
+    // If trader, create trader record
+    if (role === 'trader') {
+      await supabase.from('traders').insert({
+        user_id: data.user.id,
+        name,
+        business_name: businessName,
+        mobile,
+        location_en: location,
+        location_hi: location,
+        location_gu: location,
+      });
+    }
+
+    setLoading(false);
+    toast.success(t('welcome') + '!');
+
+    if (role === 'trader') {
+      navigate('/dashboard');
+    } else {
+      navigate('/');
+    }
   };
 
   return (
@@ -76,6 +132,18 @@ const Signup = () => {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-foreground mb-1">📧 {t('email')}</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-card border border-input text-base touch-target"
+              placeholder="name@example.com"
+              required
+            />
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-foreground mb-1">📱 {t('mobile')}</label>
             <input
               type="tel"
@@ -95,6 +163,7 @@ const Signup = () => {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 rounded-xl bg-card border border-input text-base touch-target"
               required
+              minLength={6}
             />
           </div>
 
@@ -158,9 +227,10 @@ const Signup = () => {
 
           <button
             type="submit"
-            className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-base touch-target"
+            disabled={loading}
+            className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-base touch-target disabled:opacity-50"
           >
-            {language === 'en' ? `${t('signupAs')} ${role === 'farmer' ? t('farmer') : t('trader')}` : `${role === 'farmer' ? t('farmer') : t('trader')} ${t('signupAs')}`}
+            {loading ? '...' : language === 'en' ? `${t('signupAs')} ${role === 'farmer' ? t('farmer') : t('trader')}` : `${role === 'farmer' ? t('farmer') : t('trader')} ${t('signupAs')}`}
           </button>
         </form>
 
