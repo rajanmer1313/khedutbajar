@@ -107,6 +107,7 @@ const translations = {
     subscription: 'સબ્સ્ક્રિપ્શન',
     free: 'મફત',
     selectCrops: 'પાક પસંદ કરો',
+    email: 'ઇમેઇલ',
   },
   en: {
     appName: 'Kisan Bazaar',
