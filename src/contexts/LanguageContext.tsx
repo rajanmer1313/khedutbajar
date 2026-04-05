@@ -160,6 +160,7 @@ const translations = {
     subscription: 'Subscription',
     free: 'Free',
     selectCrops: 'Select Crops',
+    email: 'Email',
   },
 };
 
