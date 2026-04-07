@@ -14,16 +14,21 @@ export function useTraders() {
   const query = useQuery({
     queryKey: ['traders'],
     queryFn: async () => {
-      const { data: traders, error: tErr } = await supabase
-        .from('traders')
-        .select('*')
-        .order('rating', { ascending: false });
+      const [
+        { data: traders, error: tErr },
+        { data: crops, error: cErr },
+        { data: reviews, error: rErr },
+      ] = await Promise.all([
+        supabase
+          .from('traders')
+          .select('*')
+          .order('rating', { ascending: false }),
+        supabase.from('crops').select('*'),
+        supabase.from('reviews').select('*').order('created_at', { ascending: false }),
+      ]);
+
       if (tErr) throw tErr;
-
-      const { data: crops, error: cErr } = await supabase.from('crops').select('*');
       if (cErr) throw cErr;
-
-      const { data: reviews, error: rErr } = await supabase.from('reviews').select('*');
       if (rErr) throw rErr;
 
       return (traders || []).map((trader) => ({

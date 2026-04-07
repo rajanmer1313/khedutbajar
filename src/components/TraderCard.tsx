@@ -1,10 +1,13 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { TraderWithCropsAndReviews } from '@/hooks/useTraders';
+import { useAuth } from '@/hooks/useAuth';
 import StarRating from './StarRating';
 import CropCard from './CropCard';
 import { Phone, MessageCircle, Shield, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import ReviewSection from './ReviewSection';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface TraderCardProps {
   trader: TraderWithCropsAndReviews;
@@ -12,16 +15,40 @@ interface TraderCardProps {
 
 const TraderCard = ({ trader }: TraderCardProps) => {
   const { language, t } = useLanguage();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [showReviews, setShowReviews] = useState(false);
 
   const location = language === 'hi' ? trader.location_hi : language === 'gu' ? trader.location_gu : trader.location_en;
+  const phoneDigits = trader.mobile.replace(/\D/g, '');
+  const whatsappNumber = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
+  const telephoneNumber = trader.mobile.startsWith('+')
+    ? trader.mobile
+    : phoneDigits.length === 10
+      ? `+91${phoneDigits}`
+      : `+${phoneDigits}`;
+
+  const redirectToLogin = () => {
+    toast.error(t('loginRequired'));
+    navigate('/login', { state: { redirectTo: '/' } });
+  };
 
   const handleCall = () => {
-    window.open(`tel:${trader.mobile}`);
+    if (!user) {
+      redirectToLogin();
+      return;
+    }
+
+    window.open(`tel:${telephoneNumber}`);
   };
 
   const handleWhatsApp = () => {
-    window.open(`https://wa.me/91${trader.mobile}`, '_blank');
+    if (!user) {
+      redirectToLogin();
+      return;
+    }
+
+    window.open(`https://wa.me/${whatsappNumber}`, '_blank', 'noopener,noreferrer');
   };
 
   return (

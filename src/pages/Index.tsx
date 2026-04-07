@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTraders } from '@/hooks/useTraders';
-import { cropOptions } from '@/data/mockData';
 import Header from '@/components/Header';
 import TraderCard from '@/components/TraderCard';
 import SearchFilter from '@/components/SearchFilter';
@@ -23,8 +22,14 @@ const Index = () => {
           tr.name.toLowerCase().includes(term) ||
           tr.business_name.toLowerCase().includes(term) ||
           tr.location_en.toLowerCase().includes(term) ||
-          tr.location_hi.includes(term) ||
-          tr.location_gu.includes(term)
+            tr.location_hi.includes(term) ||
+            tr.location_gu.includes(term) ||
+            tr.crops.some(
+              (crop) =>
+                crop.name_en.toLowerCase().includes(term)
+                || crop.name_hi.includes(searchTerm)
+                || crop.name_gu.includes(searchTerm)
+            )
       );
     }
 
@@ -75,7 +80,7 @@ const Index = () => {
           {isLoading ? (
             <div className="text-center py-12">
               <span className="text-5xl block mb-3 animate-spin">⏳</span>
-              <p className="text-muted-foreground">Loading...</p>
+              <p className="text-muted-foreground">{t('loading')}</p>
             </div>
           ) : filteredTraders.length > 0 ? (
             filteredTraders.map((trader) => (
@@ -84,7 +89,7 @@ const Index = () => {
           ) : (
             <div className="text-center py-12">
               <span className="text-5xl block mb-3">🔍</span>
-              <p className="text-muted-foreground">{t('search')}</p>
+              <p className="text-muted-foreground">{t('noTradersFound')}</p>
             </div>
           )}
         </div>
