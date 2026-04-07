@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { cropOptions } from '@/data/mockData';
+import { cropOptions } from '@/data/cropCatalog';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
+import { OtpMode, requestPhoneOtp, toAuthPhone, toStoredPhone, verifyDevPhoneOtp } from '@/lib/phoneAuth';
 
 type Role = 'farmer' | 'trader';
 
@@ -22,8 +23,10 @@ const Signup = () => {
   const [selectedCrops, setSelectedCrops] = useState<string[]>([]);
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [otpMode, setOtpMode] = useState<OtpMode>('sms');
 
-  const fullPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+  const fullPhone = toAuthPhone(phone);
+  const storedPhone = toStoredPhone(phone);
 
   const toggleCrop = (cropId: string) => {
     setSelectedCrops((prev) =>
@@ -37,14 +40,27 @@ const Signup = () => {
       toast.error(t('fillAllFields'));
       return;
     }
+
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone });
+    const result = await requestPhoneOtp({
+      phone: fullPhone,
+      shouldCreateUser: true,
+      metadata: {
+        role,
+        name,
+        mobile: storedPhone,
+      },
+    });
+
     setLoading(false);
-    if (error) {
-      toast.error(error.message);
+
+    if (result.error) {
+      toast.error(result.error.message);
       return;
     }
-    toast.success(t('otpSent'));
+
+    setOtpMode(result.mode);
+    toast.success(result.mode === 'dev' ? t('devOtpMode') : t('otpSent'));
     setStep('otp');
   };
 
@@ -53,84 +69,112 @@ const Signup = () => {
       toast.error(t('enterValidOtp'));
       return;
     }
+
     setLoading(true);
 
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone: fullPhone,
-      token: otp,
-      type: 'sms',
-    });
+    try {
+      const user = otpMode === 'dev'
+        ? await verifyDevPhoneOtp({
+            phone: fullPhone,
+            otp,
+            purpose: 'signup',
+            metadata: {
+              role,
+              name,
+              mobile: storedPhone,
+            },
+          })
+        : (await supabase.auth.verifyOtp({
+            phone: fullPhone,
+            token: otp,
+            type: 'sms',
+          })).data.user;
 
-    if (error) {
-      toast.error(error.message);
-      setLoading(false);
-      return;
-    }
+      if (!user) {
+        toast.error(t('signupFailed'));
+        setLoading(false);
+        return;
+      }
 
-    if (!data.user) {
-      toast.error('Signup failed');
-      setLoading(false);
-      return;
-    }
-
-    // Check if profile already exists (trigger may have created it)
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', data.user.id)
-      .maybeSingle();
-
-    if (existingProfile) {
-      // Update existing profile
-      await supabase
+      const { data: existingProfile } = await supabase
         .from('profiles')
-        .update({
-          role,
-          name,
-          mobile: phone,
-          ...(role === 'farmer' ? { village } : { business_name: businessName, location }),
-        })
-        .eq('id', data.user.id);
-    } else {
-      // Insert profile
-      await supabase.from('profiles').insert({
-        id: data.user.id,
-        role,
-        name,
-        mobile: phone,
-        ...(role === 'farmer' ? { village } : { business_name: businessName, location }),
-      });
-    }
-
-    // If trader, create trader record
-    if (role === 'trader') {
-      const { data: existingTrader } = await supabase
-        .from('traders')
         .select('id')
-        .eq('user_id', data.user.id)
+        .eq('id', user.id)
         .maybeSingle();
 
-      if (!existingTrader) {
-        await supabase.from('traders').insert({
-          user_id: data.user.id,
+      if (existingProfile) {
+        const { error: profileUpdateError } = await supabase
+          .from('profiles')
+          .update({
+            role,
+            name,
+            mobile: storedPhone,
+            village: role === 'farmer' ? village : null,
+            business_name: role === 'trader' ? businessName : null,
+            location: role === 'trader' ? location : null,
+          })
+          .eq('id', user.id);
+
+        if (profileUpdateError) throw profileUpdateError;
+      } else {
+        const { error: profileInsertError } = await supabase.from('profiles').insert({
+          id: user.id,
+          role,
           name,
-          business_name: businessName,
-          mobile: phone,
-          location_en: location,
-          location_hi: location,
-          location_gu: location,
+          mobile: storedPhone,
+          village: role === 'farmer' ? village : null,
+          business_name: role === 'trader' ? businessName : null,
+          location: role === 'trader' ? location : null,
         });
+
+        if (profileInsertError) throw profileInsertError;
       }
+
+      if (role === 'trader') {
+        const { data: existingTrader } = await supabase
+          .from('traders')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (existingTrader) {
+          const { error: traderUpdateError } = await supabase
+            .from('traders')
+            .update({
+              name,
+              business_name: businessName,
+              mobile: storedPhone,
+              location_en: location,
+              location_hi: location,
+              location_gu: location,
+            })
+            .eq('id', existingTrader.id);
+
+          if (traderUpdateError) throw traderUpdateError;
+        } else {
+          const { error: traderInsertError } = await supabase.from('traders').insert({
+            user_id: user.id,
+            name,
+            business_name: businessName,
+            mobile: storedPhone,
+            location_en: location,
+            location_hi: location,
+            location_gu: location,
+          });
+
+          if (traderInsertError) throw traderInsertError;
+        }
+      }
+
+      toast.success(`${t('welcome')}!`);
+      navigate(role === 'trader' ? '/dashboard' : '/');
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : t('signupFailed'));
+      setLoading(false);
+      return;
     }
 
     setLoading(false);
-    toast.success(t('welcome') + '!');
-
-    if (role === 'trader') {
-      navigate('/dashboard');
-    } else {
-      navigate('/');
-    }
   };
 
   return (
@@ -297,6 +341,9 @@ const Signup = () => {
             >
               {t('changeNumber')}
             </button>
+            {otpMode === 'dev' && (
+              <p className="text-center text-sm text-muted-foreground">{t('devOtpHint')}</p>
+            )}
           </div>
         )}
 

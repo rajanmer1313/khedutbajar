@@ -27,7 +27,7 @@ const Header = () => {
           {user ? (
             <div className="flex items-center gap-2 ml-2">
               <span className="text-sm font-medium text-foreground truncate max-w-[100px]">
-                {profile?.name || user.email?.split('@')[0]}
+                {profile?.name || user.phone || user.email?.split('@')[0]}
               </span>
               {profile?.role === 'trader' && (
                 <Link

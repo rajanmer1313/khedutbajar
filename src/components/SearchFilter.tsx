@@ -1,5 +1,5 @@
 import { useLanguage } from '@/contexts/LanguageContext';
-import { cropOptions } from '@/data/mockData';
+import { cropOptions } from '@/data/cropCatalog';
 import { Search } from 'lucide-react';
 
 interface SearchFilterProps {

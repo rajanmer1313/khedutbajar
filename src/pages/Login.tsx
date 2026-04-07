@@ -1,34 +1,52 @@
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
+import { OtpMode, requestPhoneOtp, toAuthPhone } from '@/lib/phoneAuth';
 
 const Login = () => {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = useState(false);
+  const [otpMode, setOtpMode] = useState<OtpMode>('sms');
 
-  const fullPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+  const fullPhone = toAuthPhone(phone);
+  const redirectTo = (location.state as { redirectTo?: string } | null)?.redirectTo;
 
   const sendOtp = async () => {
     if (!phone || phone.length < 10) {
       toast.error(t('enterValidMobile'));
       return;
     }
+
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone });
+    const result = await requestPhoneOtp({
+      phone: fullPhone,
+      shouldCreateUser: false,
+    });
+
     setLoading(false);
-    if (error) {
-      toast.error(error.message);
+
+    if (result.error) {
+      toast.error(/create/i.test(result.error.message) ? t('signupFirst') : result.error.message);
       return;
     }
-    toast.success(t('otpSent'));
+
+    setOtpMode(result.mode);
+
+    if (result.mode === 'dev') {
+      toast.success(t('devOtpMode'));
+    } else {
+      toast.success(t('otpSent'));
+    }
+
     setStep('otp');
   };
 
@@ -37,32 +55,54 @@ const Login = () => {
       toast.error(t('enterValidOtp'));
       return;
     }
+
     setLoading(true);
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone: fullPhone,
-      token: otp,
-      type: 'sms',
-    });
-    if (error) {
-      toast.error(error.message);
+
+    try {
+      const user = otpMode === 'dev'
+        ? await (await import('@/lib/phoneAuth')).verifyDevPhoneOtp({
+            phone: fullPhone,
+            otp,
+            purpose: 'login',
+          })
+        : (await supabase.auth.verifyOtp({
+            phone: fullPhone,
+            token: otp,
+            type: 'sms',
+          })).data.user;
+
+      if (!user) {
+        toast.error(t('loginFailed'));
+        setLoading(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!profile) {
+        await supabase.auth.signOut();
+        toast.error(t('signupFirst'));
+        setLoading(false);
+        return;
+      }
+
+      toast.success(t('welcome'));
+
+      if (profile.role === 'trader') {
+        navigate(redirectTo === '/dashboard' ? '/dashboard' : '/dashboard');
+      } else {
+        navigate(redirectTo || '/');
+      }
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : t('loginFailed'));
       setLoading(false);
       return;
     }
 
-    // Check if profile exists and get role
-    if (data.user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .maybeSingle();
-
-      if (profile?.role === 'trader') {
-        navigate('/dashboard');
-      } else {
-        navigate('/');
-      }
-    }
     setLoading(false);
   };
 
@@ -138,6 +178,9 @@ const Login = () => {
             >
               {t('changeNumber')}
             </button>
+            {otpMode === 'dev' && (
+              <p className="text-center text-sm text-muted-foreground">{t('devOtpHint')}</p>
+            )}
           </div>
         )}
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import type { Session, User } from '@supabase/supabase-js';
 
 export type UserRole = 'farmer' | 'trader';
 
@@ -25,35 +25,47 @@ export function useAuth() {
       .select('*')
       .eq('id', userId)
       .maybeSingle();
-    if (data) setProfile(data as Profile);
+    setProfile((data as Profile | null) ?? null);
+  };
+
+  const syncAuthState = async (session: Session | null) => {
+    setIsReady(false);
+    setUser(session?.user ?? null);
+
+    if (session?.user) {
+      await fetchProfile(session.user.id);
+    } else {
+      setProfile(null);
+    }
+
+    setIsReady(true);
   };
 
   useEffect(() => {
+    let isMounted = true;
+
+    const runSync = async (session: Session | null) => {
+      if (!isMounted) return;
+      await syncAuthState(session);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        setTimeout(() => fetchProfile(session.user.id), 0);
-      } else {
-        setProfile(null);
-      }
-      setIsReady(true);
+      void runSync(session);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setIsReady(true);
+      void runSync(session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
-    localStorage.removeItem('kisanUser');
   };
 
   return { user, profile, isReady, signOut };

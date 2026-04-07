@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { cropOptions } from '@/data/mockData';
+import { cropOptions } from '@/data/cropCatalog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Header from '@/components/Header';
 import { Plus, Trash2, Edit2, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Tables } from '@/integrations/supabase/types';
 
 const Dashboard = () => {
   const { language, t } = useLanguage();
@@ -61,8 +60,6 @@ const Dashboard = () => {
     return () => { supabase.removeChannel(channel); };
   }, [traderId, queryClient]);
 
-  const getCropInfo = (nameEn: string) => cropOptions.find((c) => c.name.en.toLowerCase() === nameEn.toLowerCase());
-
   const addCrop = async () => {
     if (!newCropId || !newPrice || !traderId) return;
     const cropInfo = cropOptions.find((c) => c.id === newCropId);
@@ -84,7 +81,7 @@ const Dashboard = () => {
     setNewCropId('');
     setNewPrice('');
     setShowAddForm(false);
-    toast.success('Crop added!');
+    toast.success(t('cropAdded'));
   };
 
   const deleteCrop = async (id: string) => {
@@ -93,7 +90,7 @@ const Dashboard = () => {
       toast.error(error.message);
       return;
     }
-    toast.success('Crop deleted!');
+    toast.success(t('cropDeleted'));
   };
 
   const updatePrice = async (id: string, price: number) => {
@@ -103,7 +100,7 @@ const Dashboard = () => {
       return;
     }
     setEditingId(null);
-    toast.success('Price updated!');
+    toast.success(t('priceUpdated'));
   };
 
   if (!traderId) {
