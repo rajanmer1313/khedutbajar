@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { cropOptions } from '@/data/cropCatalog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTraders } from '@/hooks/useTraders';
 import Header from '@/components/Header';
@@ -34,7 +35,7 @@ const Index = () => {
     }
 
     if (selectedCrop) {
-      const cropInfo = (await import('@/data/cropCatalog')).cropOptions.find((c) => c.id === selectedCrop);
+      const cropInfo = cropOptions.find((c) => c.id === selectedCrop);
       if (cropInfo) {
         const cropNameEn = cropInfo.name.en.toLowerCase();
         list = list.filter((tr) =>
