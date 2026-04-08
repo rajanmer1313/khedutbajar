@@ -22,6 +22,21 @@ export const DEV_OTP_CODE = '123456';
 
 const SMS_PROVIDER_ERROR_REGEX = /unable to get sms provider/i;
 
+/** Returns true when the app is running in a dev/preview context */
+function isDevOrPreview(): boolean {
+  if (import.meta.env.DEV) return true;
+  try {
+    const hostname = window.location.hostname;
+    return (
+      hostname === 'localhost' ||
+      hostname.endsWith('.lovable.app') ||
+      hostname.endsWith('.lovableproject.com')
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function toAuthPhone(phone: string) {
   const digits = phone.replace(/\D/g, '');
   const localNumber = digits.slice(-10);
@@ -45,7 +60,8 @@ export async function requestPhoneOtp({ phone, shouldCreateUser, metadata }: Pho
     return { mode: 'sms' as const };
   }
 
-  if (import.meta.env.DEV && SMS_PROVIDER_ERROR_REGEX.test(error.message)) {
+  // Fall back to dev OTP if SMS provider isn't configured and we're in preview
+  if (isDevOrPreview() && SMS_PROVIDER_ERROR_REGEX.test(error.message)) {
     return { mode: 'dev' as const };
   }
 
