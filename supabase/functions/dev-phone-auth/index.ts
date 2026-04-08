@@ -85,16 +85,19 @@ serve(async (request) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data: listedUsers, error: listError } = await adminClient.auth.admin.listUsers({
-      page: 1,
-      perPage: 1000,
-    });
-
-    if (listError) {
-      throw listError;
+    // Use a more reliable lookup: iterate pages to find user by phone
+    let user = null;
+    let page = 1;
+    while (!user) {
+      const { data: listedUsers, error: listError } = await adminClient.auth.admin.listUsers({
+        page,
+        perPage: 1000,
+      });
+      if (listError) throw listError;
+      user = listedUsers.users.find((entry) => entry.phone === normalizedPhone) ?? null;
+      if (user || listedUsers.users.length < 1000) break;
+      page++;
     }
-
-    let user = listedUsers.users.find((entry) => entry.phone === normalizedPhone) ?? null;
 
     if (!user && purpose === 'login') {
       return new Response(JSON.stringify({ error: 'No account found for this mobile number.' }), {
@@ -111,10 +114,15 @@ serve(async (request) => {
       });
 
       if (createError) {
-        throw createError;
+        // If phone already exists (race condition), try to find the user again
+        if (createError.message?.includes('already') || createError.message?.includes('duplicate')) {
+          const { data: retryList } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          user = retryList?.users.find((entry) => entry.phone === normalizedPhone) ?? null;
+        }
+        if (!user) throw createError;
+      } else {
+        user = createdUser.user;
       }
-
-      user = createdUser.user;
     }
 
     if (!user) {
