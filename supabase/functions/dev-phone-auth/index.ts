@@ -94,7 +94,11 @@ serve(async (request) => {
         perPage: 1000,
       });
       if (listError) throw listError;
-      user = listedUsers.users.find((entry) => entry.phone === normalizedPhone) ?? null;
+      user = listedUsers.users.find((entry) => {
+        const entryPhone = (entry.phone ?? '').replace(/\D/g, '').slice(-10);
+        const searchPhone = normalizedPhone.replace(/\D/g, '').slice(-10);
+        return entryPhone === searchPhone;
+      }) ?? null;
       if (user || listedUsers.users.length < 1000) break;
       page++;
     }
