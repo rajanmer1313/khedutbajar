@@ -121,7 +121,11 @@ serve(async (request) => {
         // If phone already exists (race condition), try to find the user again
         if (createError.message?.includes('already') || createError.message?.includes('duplicate')) {
           const { data: retryList } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
-          user = retryList?.users.find((entry) => entry.phone === normalizedPhone) ?? null;
+          const searchPhone = normalizedPhone.replace(/\D/g, '').slice(-10);
+          user = retryList?.users.find((entry) => {
+            const entryPhone = (entry.phone ?? '').replace(/\D/g, '').slice(-10);
+            return entryPhone === searchPhone;
+          }) ?? null;
         }
         if (!user) throw createError;
       } else {
